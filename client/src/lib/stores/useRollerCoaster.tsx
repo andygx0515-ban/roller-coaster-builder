@@ -130,46 +130,67 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       }
       
       const loopRadius = 8;
-      const numPoints = 20;
-      const separationDist = loopRadius + 2; // How far outside the loop comes down
+      const halfPoints = 10; // Points for each half of the loop
       const loopPoints: TrackPoint[] = [];
       
-      // Compute right vector (perpendicular to forward in horizontal plane)
-      const up = new THREE.Vector3(0, 1, 0);
-      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-      
-      // Get the next point (unchanged) so we can rejoin it
-      const nextPoint = state.trackPoints[pointIndex + 1];
-      
-      // Pure circular loop in forward-up plane with lateral offset on descent:
-      // - Ascending half (t < 0.5): pure circle
-      // - Descending half (t > 0.5): gradually moves outside (lateral offset)
-      
-      for (let i = 1; i <= numPoints; i++) {
-        const t = i / numPoints;
-        const theta = t * Math.PI * 2;
+      // Build ascending half (entry to top): θ from 0 to π
+      const ascendingOffsets: { forward: number; vertical: number }[] = [];
+      for (let i = 1; i <= halfPoints; i++) {
+        const t = i / halfPoints; // 0 to 1 over first half
+        const theta = t * Math.PI; // 0 to π
         
         const forwardOffset = Math.sin(theta) * loopRadius;
         const verticalOffset = (1 - Math.cos(theta)) * loopRadius;
         
-        // Lateral ease: only applies on descending half (t > 0.5)
-        // smoothstep from 0.5 to 1.0
-        const lateralT = Math.max(0, (t - 0.5) / 0.5);
-        const lateralEase = lateralT * lateralT * (3 - 2 * lateralT);
-        const lateralOffset = lateralEase * separationDist;
-        
-        const x = entryPos.x + forward.x * forwardOffset + right.x * lateralOffset;
-        const y = entryPos.y + verticalOffset;
-        const z = entryPos.z + forward.z * forwardOffset + right.z * lateralOffset;
+        ascendingOffsets.push({ forward: forwardOffset, vertical: verticalOffset });
         
         loopPoints.push({
           id: `point-${++pointCounter}`,
-          position: new THREE.Vector3(x, y, z),
+          position: new THREE.Vector3(
+            entryPos.x + forward.x * forwardOffset,
+            entryPos.y + verticalOffset,
+            entryPos.z + forward.z * forwardOffset
+          ),
           tilt: 0
         });
       }
       
-      // Loop exit position (last point of loop)
+      // Build descending half by MIRRORING the ascending half (excluding peak which is shared)
+      // Mirror means: same forward offset, but vertical comes back down symmetrically
+      // We go through ascendingOffsets in reverse, skipping the last one (the peak)
+      for (let i = halfPoints - 1; i >= 1; i--) {
+        const offset = ascendingOffsets[i - 1]; // Get the mirror point
+        const peakHeight = ascendingOffsets[halfPoints - 1].vertical; // Height at top (2*radius)
+        
+        // Mirror the vertical: descending from peak back to entry level
+        // If ascending went 0 -> peakHeight, descending goes peakHeight -> 0
+        // The mirrored vertical offset = peakHeight - (peakHeight - offset.vertical) = offset.vertical
+        // But we need to continue PAST the peak, so:
+        // At i=halfPoints-1: we're just past peak, vertical should start going down
+        // Mirror index maps: i=halfPoints-1 -> ascendingOffsets[halfPoints-2], etc.
+        
+        // Actually simpler: just mirror the forward offset and continue the vertical descent
+        const mirrorT = (halfPoints - i) / halfPoints; // 0 to 1 as we descend
+        const theta = Math.PI + mirrorT * Math.PI; // π to 2π
+        
+        const forwardOffset = Math.sin(theta) * loopRadius; // Goes negative then back to 0
+        const verticalOffset = (1 - Math.cos(theta)) * loopRadius; // Descends back to 0
+        
+        loopPoints.push({
+          id: `point-${++pointCounter}`,
+          position: new THREE.Vector3(
+            entryPos.x + forward.x * forwardOffset,
+            entryPos.y + verticalOffset,
+            entryPos.z + forward.z * forwardOffset
+          ),
+          tilt: 0
+        });
+      }
+      
+      // Get the next point (unchanged) so we can rejoin it
+      const nextPoint = state.trackPoints[pointIndex + 1];
+      
+      // Loop exit position (last point of loop) - should be very close to entry
       const loopExit = loopPoints[loopPoints.length - 1].position.clone();
       
       // Create transition points to smoothly return to the original next point
