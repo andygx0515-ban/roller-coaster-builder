@@ -132,13 +132,14 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       const loopRadius = 8;
       const totalLoopPoints = 20;
       const loopPoints: TrackPoint[] = [];
+      const helixSeparation = 3.5; // Mild corkscrew separation
       
-      // Compute right vector for exit separation
+      // Compute right vector for corkscrew offset
       const up = new THREE.Vector3(0, 1, 0);
       const right = new THREE.Vector3().crossVectors(forward, up).normalize();
       
-      // Build perfectly planar loop: NO lateral offset inside the loop
-      // This keeps the track from twisting
+      // Build helical loop with mild corkscrew
+      // Lateral offset increases linearly throughout to separate entry from exit
       for (let i = 1; i <= totalLoopPoints; i++) {
         const t = i / totalLoopPoints; // 0 to 1
         const theta = t * Math.PI * 2; // 0 to 2π
@@ -146,12 +147,15 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
         const forwardOffset = Math.sin(theta) * loopRadius;
         const verticalOffset = (1 - Math.cos(theta)) * loopRadius;
         
+        // Gradual corkscrew: linear lateral offset
+        const lateralOffset = t * helixSeparation;
+        
         loopPoints.push({
           id: `point-${++pointCounter}`,
           position: new THREE.Vector3(
-            entryPos.x + forward.x * forwardOffset,
+            entryPos.x + forward.x * forwardOffset + right.x * lateralOffset,
             entryPos.y + verticalOffset,
-            entryPos.z + forward.z * forwardOffset
+            entryPos.z + forward.z * forwardOffset + right.z * lateralOffset
           ),
           tilt: 0
         });
@@ -172,40 +176,17 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
         .add(forward.clone().multiplyScalar(forwardSeparation))
         .add(right.clone().multiplyScalar(exitSeparation));
       
-      // Create S-curve transition to pull exit away from entry
+      // Simple transition from corkscrew exit to next point
       const transitionPoints: TrackPoint[] = [];
-      const separation = 4.0;
-      
-      // Point 1: Move forward and start lateral offset
-      transitionPoints.push({
-        id: `point-${++pointCounter}`,
-        position: loopExit.clone()
-          .add(forward.clone().multiplyScalar(2))
-          .add(right.clone().multiplyScalar(separation * 0.5)),
-        tilt: 0
-      });
-      
-      // Point 2: Continue forward with full lateral offset
-      transitionPoints.push({
-        id: `point-${++pointCounter}`,
-        position: loopExit.clone()
-          .add(forward.clone().multiplyScalar(4))
-          .add(right.clone().multiplyScalar(separation)),
-        tilt: 0
-      });
       
       if (nextPoint) {
         const nextPos = nextPoint.position.clone();
         
-        // Point 3: Blend toward next point
-        const blendPoint = loopExit.clone()
-          .add(forward.clone().multiplyScalar(6))
-          .add(right.clone().multiplyScalar(separation * 0.5));
-        blendPoint.lerp(nextPos, 0.3);
-        
+        // Single smooth transition point between loop exit and next point
+        const midPoint = loopExit.clone().lerp(nextPos, 0.5);
         transitionPoints.push({
           id: `point-${++pointCounter}`,
-          position: blendPoint,
+          position: midPoint,
           tilt: 0
         });
       }
