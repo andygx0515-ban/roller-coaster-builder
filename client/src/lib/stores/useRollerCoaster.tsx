@@ -139,10 +139,10 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
         forward.normalize();
       }
       
-      const loopRadius = 8;
+      const loopRadius = 4;
       const totalLoopPoints = 20;
       const loopPoints: TrackPoint[] = [];
-      const helixSeparation = 3.5; // Mild corkscrew separation
+      const helixSeparation = 1.75; // Mild corkscrew separation
       
       // Compute right vector for corkscrew offset
       const up = new THREE.Vector3(0, 1, 0);
@@ -186,8 +186,8 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       const loopExit = loopPoints[loopPoints.length - 1].position.clone();
       
       // Use same right vector from loop generation for transition separation
-      const exitSeparation = 3.0;
-      const forwardSeparation = 2.0; // Also push exit forward to prevent intersection
+      const exitSeparation = 1.5;
+      const forwardSeparation = 1.0; // Also push exit forward to prevent intersection
       
       // Offset the loop exit both forward and laterally to clear the entry track
       const offsetLoopExit = loopExit.clone()
