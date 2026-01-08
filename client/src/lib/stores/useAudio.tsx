@@ -2,12 +2,15 @@ import { create } from "zustand";
 
 interface AudioState {
   backgroundMusic: HTMLAudioElement | null;
+  daylightMusic: HTMLAudioElement | null;
   hitSound: HTMLAudioElement | null;
   successSound: HTMLAudioElement | null;
   isMuted: boolean;
+  isDaylightMusicPlaying: boolean;
   
   // Setter functions
   setBackgroundMusic: (music: HTMLAudioElement) => void;
+  setDaylightMusic: (music: HTMLAudioElement) => void;
   setHitSound: (sound: HTMLAudioElement) => void;
   setSuccessSound: (sound: HTMLAudioElement) => void;
   
@@ -15,15 +18,20 @@ interface AudioState {
   toggleMute: () => void;
   playHit: () => void;
   playSuccess: () => void;
+  playDaylightMusic: () => void;
+  stopDaylightMusic: () => void;
 }
 
 export const useAudio = create<AudioState>((set, get) => ({
   backgroundMusic: null,
+  daylightMusic: null,
   hitSound: null,
   successSound: null,
   isMuted: true, // Start muted by default
+  isDaylightMusicPlaying: false,
   
   setBackgroundMusic: (music) => set({ backgroundMusic: music }),
+  setDaylightMusic: (music) => set({ daylightMusic: music }),
   setHitSound: (sound) => set({ hitSound: sound }),
   setSuccessSound: (sound) => set({ successSound: sound }),
   
@@ -69,6 +77,30 @@ export const useAudio = create<AudioState>((set, get) => ({
       successSound.play().catch(error => {
         console.log("Success sound play prevented:", error);
       });
+    }
+  },
+  
+  playDaylightMusic: () => {
+    const { daylightMusic, isMuted, isDaylightMusicPlaying } = get();
+    if (daylightMusic && !isDaylightMusicPlaying) {
+      daylightMusic.loop = true;
+      daylightMusic.volume = 0.5;
+      
+      if (!isMuted) {
+        daylightMusic.play().catch(error => {
+          console.log("Daylight music play prevented:", error);
+        });
+      }
+      set({ isDaylightMusicPlaying: true });
+    }
+  },
+  
+  stopDaylightMusic: () => {
+    const { daylightMusic } = get();
+    if (daylightMusic) {
+      daylightMusic.pause();
+      daylightMusic.currentTime = 0;
+      set({ isDaylightMusicPlaying: false });
     }
   }
 }));
