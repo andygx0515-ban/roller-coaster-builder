@@ -128,30 +128,17 @@ export function Track() {
         
         const forward = splineTangent.clone();
         
-        const dot = Math.max(-1, Math.min(1, prevTangent.dot(forward)));
-        let entryUp: THREE.Vector3;
-        if (dot > 0.9999) {
-          entryUp = prevUp.clone();
-        } else if (dot < -0.9999) {
-          entryUp = prevUp.clone();
-        } else {
-          const axis = new THREE.Vector3().crossVectors(prevTangent, forward);
-          if (axis.length() > 0.0001) {
-            axis.normalize();
-            const angle = Math.acos(dot);
-            const quat = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-            entryUp = prevUp.clone().applyQuaternion(quat);
-          } else {
-            entryUp = prevUp.clone();
-          }
-        }
-        
+        // Use WORLD up to build roll frame - this keeps the roll horizontal
+        // and ensures it goes UP first, not into the ground
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        let entryUp = worldUp.clone();
         const upDot = entryUp.dot(forward);
         entryUp.sub(forward.clone().multiplyScalar(upDot));
         if (entryUp.length() > 0.001) {
           entryUp.normalize();
         } else {
-          entryUp.set(0, 1, 0);
+          // Forward is nearly vertical, use a fallback
+          entryUp.set(1, 0, 0);
           const d = entryUp.dot(forward);
           entryUp.sub(forward.clone().multiplyScalar(d)).normalize();
         }

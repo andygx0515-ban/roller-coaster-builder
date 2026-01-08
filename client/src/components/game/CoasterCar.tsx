@@ -59,8 +59,6 @@ function sampleBarrelRollAnalytically(
 function computeRollFrame(
   spline: THREE.CatmullRomCurve3,
   splineT: number,
-  prevTangent: THREE.Vector3,
-  prevUp: THREE.Vector3,
   radius: number,
   pitch: number,
   rollOffset: THREE.Vector3
@@ -68,30 +66,15 @@ function computeRollFrame(
   const entryPos = spline.getPoint(splineT).add(rollOffset);
   const forward = spline.getTangent(splineT).normalize();
   
-  const dot = Math.max(-1, Math.min(1, prevTangent.dot(forward)));
-  let entryUp: THREE.Vector3;
-  if (dot > 0.9999) {
-    entryUp = prevUp.clone();
-  } else if (dot < -0.9999) {
-    entryUp = prevUp.clone();
-  } else {
-    const axis = new THREE.Vector3().crossVectors(prevTangent, forward);
-    if (axis.length() > 0.0001) {
-      axis.normalize();
-      const angle = Math.acos(dot);
-      const quat = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-      entryUp = prevUp.clone().applyQuaternion(quat);
-    } else {
-      entryUp = prevUp.clone();
-    }
-  }
-  
+  // Use WORLD up to build roll frame - keeps roll horizontal and going UP first
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  let entryUp = worldUp.clone();
   const upDot = entryUp.dot(forward);
   entryUp.sub(forward.clone().multiplyScalar(upDot));
   if (entryUp.length() > 0.001) {
     entryUp.normalize();
   } else {
-    entryUp.set(0, 1, 0);
+    entryUp.set(1, 0, 0);
     const d = entryUp.dot(forward);
     entryUp.sub(forward.clone().multiplyScalar(d)).normalize();
   }
@@ -232,7 +215,7 @@ export function CoasterCar() {
       
       if (loopSeg) {
         const splineT = i / totalSplineSegments;
-        const rollFrame = computeRollFrame(curve, splineT, prevTangent, prevUp, loopSeg.radius, loopSeg.pitch, rollOffset.clone());
+        const rollFrame = computeRollFrame(curve, splineT, loopSeg.radius, loopSeg.pitch, rollOffset.clone());
         
         const rollArcLength = computeRollArcLength(loopSeg.radius, loopSeg.pitch);
         
